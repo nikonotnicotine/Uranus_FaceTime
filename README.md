@@ -91,7 +91,6 @@ node src/index.mjs --dump                 # 苹果改了页面、按钮点不到
 npm test                                  # 自测
 ```
 
-设计和取舍写在 [设计.md](./设计.md)。
 
 ## 许可
 
