@@ -4,7 +4,7 @@
 
 在 iPhone 上创建一条 FaceTime 链接、用 iMessage 发给角色，角色就会**用自己的声音接起来** —— 真的 FaceTime，全程在 iPhone 原生的通话界面里。听得出你的语气、听得到你那边的背景声音，开着摄像头的话还看得到你。
 
-**完整教程看 [使用教程.pdf](./使用教程.pdf)**（也有 Word 版：[使用教程.docx](./使用教程.docx)）（截图级的步骤、四种部署、常见问题）。
+**完整教程看 [使用教程.pdf](./使用教程.pdf)**（也有 链接 版：[facetime使用教程]((https://ccnb9dqqjtkg.feishu.cn/docx/L2FqdqCpXoNeeBxR8YtcKfvVnKg))）（截图级的步骤、四种部署、常见问题）。
 
 ---
 
