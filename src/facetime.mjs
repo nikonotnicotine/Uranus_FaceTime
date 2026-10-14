@@ -82,7 +82,7 @@ export const GUM_SHIM = `
 })()
 `;
 
-const HELPER = `
+export const HELPER = `
 (() => {
   if (window.__ft) return "already";
 
@@ -191,6 +191,29 @@ const HELPER = `
           el.click();
           return l;
         }
+      }
+      return null;
+    },
+
+    /**
+     * 有没有这么一个能点的元素 —— 判据和 click 完全一样，只是不点。
+     *
+     * 「等某个按钮出现」必须用它，不能用 text().includes(词)：页面上的**提示
+     * 文字**里也会出现那个词（姓名屏那句「请输入你的姓名以加入通话」里就有
+     * 「加入」），拿整页文字判会在上一屏就成立。
+     */
+    has(words, opts = {}) {
+      const { needVisible = true, not = [], tags = null, roles = null } = opts;
+      for (const el of controls()) {
+        if (needVisible && !visible(el)) continue;
+        if (el.disabled) continue;
+        const tag = el.tagName.toLowerCase();
+        if (tags && !tags.includes(tag)) continue;
+        if (roles && !roles.includes(el.getAttribute("role") || "")) continue;
+        const l = label(el);
+        if (!l) continue;
+        if (not.some((w) => l.includes(w))) continue;
+        if (words.some((w) => l.includes(w))) return l;
       }
       return null;
     },
@@ -522,17 +545,59 @@ export async function joinCall(cdp, displayName, devices = {}) {
   if (filled) logInfo("FaceTime", `名字填好了：${displayName}`);
   else logWarn("FaceTime", "没找到填名字的框，直接往下走");
 
+  /*
+   * ── 等姓名屏自己出现，别开局就点 ──
+   *
+   * 调用方只 sleep 了 4 秒就进来（call.mjs:#connect）。网络慢一点的机器上
+   * 那会儿页面还是空的 —— 实测报的就是「找不到「继续」按钮，页面上的可交互
+   * 元素（0 个）」，0 个元素就是「页面压根还没画出来」的铁证。
+   *
+   * 所以这里自己等到输入框和「继续」都在了再动手。等到了就把名字（重新）填
+   * 一遍：上面那次 fill 很可能填在了一个还不存在的框上。
+   */
+  if (!filled) {
+    await waitFor(
+      async () => {
+        const t = String((await cdp.evaluate("window.__ft.text()")) ?? "");
+        if (ENDED_WORDS.some((w) => t.includes(w))) throw new Error("链接失效了，或者通话已经结束");
+        return WORDS.next.some((w) => t.includes(w));
+      },
+      { timeoutMs: 30_000, everyMs: 500, what: "姓名屏出现" }
+    );
+    const again =
+      (await cdp.evaluate(
+        `window.__ft.fill(${JSON.stringify(WORDS.nameField)}, ${JSON.stringify(displayName)})`
+      )) ?? (await cdp.evaluate(`window.__ft.fill([], ${JSON.stringify(displayName)})`));
+    if (again) logInfo("FaceTime", `名字填好了：${displayName}`);
+    else logWarn("FaceTime", "还是没找到填名字的框，直接往下走");
+  }
+
   if (!(await click(cdp, WORDS.next, "继续"))) {
     throw new Error(`找不到「继续」按钮。\n${await dumpControls(cdp)}`);
   }
 
-  // ── 第二屏：挑设备，再点加入 ──
-  // 等那块设备面板画出来。它和「加入」按钮是一起出现的，所以等到「加入」就行
+  /*
+   * ── 第二屏：挑设备，再点加入 ──
+   *
+   * **等的是「继续」消失**，不是「页面上出现『加入』」。
+   *
+   * 原来等的是 `text().includes("加入")`，而姓名屏那句提示本身就是
+   * 「请输入你的姓名以**加入**通话」—— 条件在第一屏就成立，于是这一步立刻
+   * 返回、马上去点「加入」按钮，而页面还停在姓名屏。那一屏上唯一可点的
+   * 是「继续」，它被 joinNot 里的「请输入」挡掉（标签含 input 的 value），
+   * 于是报「找不到「加入」按钮」，而清单里明明白白写着页面文字还是
+   * 「请输入你的姓名以加入通话」。这就是用户贴的第二份日志。
+   *
+   * 所以改成等「真的有一个叫『加入』的按钮能点」（`has`，判据和 click 完全
+   * 一样，只是不点）—— 提示文字不是按钮，不会把它误判成翻页了。
+   */
   await waitFor(
     async () => {
       const t = String((await cdp.evaluate("window.__ft.text()")) ?? "");
       if (ENDED_WORDS.some((w) => t.includes(w))) throw new Error("链接失效了，或者通话已经结束");
-      return t.includes("加入") || t.includes("join");
+      return await cdp.evaluate(
+        `window.__ft.has(${JSON.stringify(WORDS.join)}, ${JSON.stringify({ not: WORDS.joinNot })})`
+      );
     },
     { timeoutMs: 30_000, everyMs: 500, what: "准备屏出现" }
   );

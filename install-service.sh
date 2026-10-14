@@ -7,6 +7,8 @@
 #
 # 装完之后**再也不用碰命令行** —— 在 Uranus 控制台里点开关就行。
 #
+# **这个脚本只能在 Linux 上跑**（systemd）。Windows 和 macOS 上不用它，见下面。
+#
 # 用法：
 #   sudo bash install-service.sh
 #
@@ -20,6 +22,30 @@ UNIT=/etc/systemd/system/uranus-facetime.service
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 die() { printf '\n\033[31m%s\033[0m\n\n' "$1" >&2; exit 1; }
+
+# ── 先认一下这是什么系统 ──────────────────────────────
+#
+# Windows 用户照着教程把这一行抄进 cmd，得到的是「'sudo' 不是内部或外部命令」——
+# 那句话完全看不出「这个脚本本来就不该在这儿跑」。所以在这里说清楚。
+case "$(uname -s 2>/dev/null || echo unknown)" in
+  Linux) ;;
+  Darwin)
+    die "这个脚本是装 systemd 服务的，macOS 上没有 systemd。
+直接跑节点就行：
+  node src/index.mjs
+要开机自启的话用 launchd（自己写一份 plist）。"
+    ;;
+  *)
+    die "这个脚本是装 systemd 服务的，只能在 Linux 上跑。
+Windows 上不用它 —— 直接在这个文件夹里跑：
+  node src/index.mjs
+这个窗口别关，节点就一直在。要开机自启的话，把上面这行做成一个快捷方式放进
+「启动」文件夹（Win+R 输入 shell:startup 就能打开那个文件夹）。"
+    ;;
+esac
+
+command -v systemctl >/dev/null 2>&1 || die "这台机器上没有 systemctl（不是 systemd 系统）。
+直接跑节点就行：node src/index.mjs"
 
 [ "$(id -u)" -eq 0 ] || die "要用 root：sudo bash install-service.sh"
 

@@ -38,7 +38,7 @@ for (const [name, code] of shims) {
 
 test("源文件里 HELPER 和 GUM_SHIM 都还是模板字符串（改法变了要更新这个测试）", () => {
   const src = readFileSync(join(SRC, "facetime.mjs"), "utf8");
-  assert.match(src, /const HELPER = `/, "HELPER 不再是模板字符串了？");
+  assert.match(src, /export const HELPER = `/, "HELPER 不再是模板字符串了？");
   assert.match(src, /export const GUM_SHIM = `/, "GUM_SHIM 不再是模板字符串了？");
 });
 
